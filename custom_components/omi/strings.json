@@ -1,0 +1,67 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "description": "Choose the Omi pendant. Disconnect it from the Omi phone app first.",
+        "data": {
+          "address": "Device",
+          "name": "Name"
+        }
+      },
+      "bluetooth_confirm": {
+        "description": "Found {name}. Add it under which name?",
+        "data": {
+          "name": "Name"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This pendant is already configured.",
+      "no_devices_found": "No Omi in range. Is it on and disconnected from the phone?"
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connected": {
+        "name": "Connected"
+      }
+    },
+    "event": {
+      "button": {
+        "name": "Button",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "single_tap": "Single tap",
+              "double_tap": "Double tap",
+              "long_press": "Long press"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "receiver": {
+        "name": "Receiver"
+      },
+      "audio_rate": {
+        "name": "Audio packets"
+      },
+      "audio_loss": {
+        "name": "Audio loss"
+      },
+      "connects": {
+        "name": "Connections"
+      },
+      "stalls": {
+        "name": "Audio stalls"
+      }
+    },
+    "switch": {
+      "connect": {
+        "name": "Connect"
+      }
+    }
+  }
+}

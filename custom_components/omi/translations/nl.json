@@ -1,0 +1,67 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "description": "Kies de Omi-hanger. Koppel hem eerst los van de Omi-app op de telefoon.",
+        "data": {
+          "address": "Apparaat",
+          "name": "Naam"
+        }
+      },
+      "bluetooth_confirm": {
+        "description": "{name} gevonden. Onder welke naam toevoegen?",
+        "data": {
+          "name": "Naam"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Deze hanger is al toegevoegd.",
+      "no_devices_found": "Geen Omi in bereik. Staat hij aan en is de telefoon losgekoppeld?"
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connected": {
+        "name": "Verbonden"
+      }
+    },
+    "event": {
+      "button": {
+        "name": "Knop",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "single_tap": "Enkele tik",
+              "double_tap": "Dubbele tik",
+              "long_press": "Lang ingedrukt"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "receiver": {
+        "name": "Ontvanger"
+      },
+      "audio_rate": {
+        "name": "Audiopakketten"
+      },
+      "audio_loss": {
+        "name": "Audioverlies"
+      },
+      "connects": {
+        "name": "Verbindingen"
+      },
+      "stalls": {
+        "name": "Stilvallen"
+      }
+    },
+    "switch": {
+      "connect": {
+        "name": "Verbinden"
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "domain": "omi",
+  "name": "Omi pendant",
+  "bluetooth": [
+    {
+      "local_name": "Omi*",
+      "connectable": true
+    }
+  ],
+  "codeowners": [
+    "@erwinunderscorealf"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "bluetooth"
+  ],
+  "documentation": "https://github.com/erwinunderscorealf/omi-ha-remote",
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/erwinunderscorealf/omi-ha-remote/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
