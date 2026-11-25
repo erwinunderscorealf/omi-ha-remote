@@ -108,6 +108,7 @@ Er is geen YAML-configuratie.
 | *Verbonden* springt aan en uit | Zwak signaal, of de ontvanger heeft geen verbindingsplek vrij. Kijk naar de sensor *Ontvanger* en de logs van de proxy. |
 | Audiopakketten 0 | Normaal in stilte: de hanger stuurt alleen audio als hij geluid hoort, en kan minutenlang zwijgen. Praat in de buurt. Sinds 0.1.2 is stilte geen reden meer om opnieuw te verbinden. |
 | Audiopakketten blijft 0 terwijl je praat | Kijk naar de MTU in de debugregel "verbonden via … (codec …, mtu …)". Een Opus-pakket heeft meer dan 23 nodig; 0.1.1 verbindt daarom zonder servicecache. |
+| Audiopakketten ver onder 50 terwijl je praat | Debuglog per 5 s: notificaties/s, bytes/s, lengte per notificatie en het aandeel fragmenten. Korte notificaties (≤20 bytes) en veel fragmenten = kleine MTU: de hanger knipt elk audioframe op. Sinds 0.1.3 vraagt de integratie de echte MTU op bij een lokale adapter (voorheen stond daar altijd 23). |
 
 Uitgebreid loggen:
 

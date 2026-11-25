@@ -14,6 +14,7 @@ import logging
 import struct
 import time
 from typing import Any
+import warnings
 
 from bleak import BleakClient
 from bleak.backends.device import BLEDevice
@@ -72,7 +73,13 @@ class OmiHanger:
         self._stop_adv: CALLBACK_TYPE | None = None
         self._venster_pakketten = 0
         self._venster_verloren = 0
+        self._venster_bytes = 0
+        self._venster_fragmenten = 0
+        self._venster_lengtes: list[int] = []
         self._vorige_id: int | None = None
+        self.notify_lengte: str | None = None
+        self.bytes_per_s: float | None = None
+        self.fragmenten_pct: float | None = None
 
     # ---- luisteraars -------------------------------------------------------
 
@@ -203,7 +210,7 @@ class OmiHanger:
         scanner = getattr(client, "_connected_scanner", None)
         self.ontvanger = getattr(scanner, "name", None)
         self.ontvanger_bron = getattr(scanner, "source", None)
-        self.mtu = getattr(client, "mtu_size", None)
+        self.mtu = await self._echte_mtu(client)
 
         try:
             self.codec = (await client.read_gatt_char(CODEC_CHAR))[0]
@@ -213,6 +220,8 @@ class OmiHanger:
 
         self._vorige_id = None
         self._venster_pakketten = self._venster_verloren = 0
+        self._venster_bytes = self._venster_fragmenten = 0
+        self._venster_lengtes = []
         await client.start_notify(AUDIO_CHAR, self._audio)
         await client.start_notify(KNOP_CHAR, self._knop)
 
@@ -236,9 +245,24 @@ class OmiHanger:
                 break
 
             n, verloren = self._venster_pakketten, self._venster_verloren
+            lengtes, frag = self._venster_lengtes, self._venster_fragmenten
+            self.bytes_per_s = round(self._venster_bytes / MEETVENSTER_S)
             self._venster_pakketten = self._venster_verloren = 0
+            self._venster_bytes = self._venster_fragmenten = 0
+            self._venster_lengtes = []
             self.pakketten_per_s = round(n / MEETVENSTER_S, 1)
             self.verlies_pct = round(100 * verloren / (n + verloren), 1) if n + verloren else None
+            if n:
+                # Heel frame of stukken? Een Opus-frame is ±80 bytes; past het niet in
+                # één notificatie (kleine MTU), dan knipt de hanger het op en loopt het
+                # derde kopbyte op (fragmenten).
+                self.notify_lengte = f"{min(lengtes)}-{max(lengtes)}"
+                self.fragmenten_pct = round(100 * frag / n, 1)
+                _LOGGER.debug(
+                    "%s: %s notificaties/s, %s bytes/s, lengte %s, fragmenten %s%%, verlies %s%%",
+                    self.naam, self.pakketten_per_s, self.bytes_per_s,
+                    self.notify_lengte, self.fragmenten_pct, self.verlies_pct,
+                )
             if time.monotonic() - batterij_tijd > BATTERIJ_ELKE_S:
                 batterij_tijd = time.monotonic()
                 await self._lees_batterij()
@@ -263,6 +287,27 @@ class OmiHanger:
         )
         return False
 
+    @staticmethod
+    async def _echte_mtu(client: BleakClient) -> int | None:
+        """De onderhandelde MTU.
+
+        Op een lokale BlueZ-adapter geeft bleak standaard 23 terug zolang niemand de
+        MTU heeft opgevraagd (gemeten 25-11-2026: hci0 "mtu 23"). Dat getal zegt dus
+        niets; vraag hem bij BlueZ op. Via een ESPHome-proxy is hij al bekend.
+        """
+        backend = getattr(client, "_backend", None)
+        if backend is not None and hasattr(backend, "_acquire_mtu") and getattr(
+            backend, "_mtu_size", 0
+        ) is None:
+            try:
+                await backend._acquire_mtu()  # noqa: SLF001
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug("MTU niet op te vragen: %s", err)
+                return None
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return getattr(client, "mtu_size", None)
+
     async def _lees_batterij(self) -> None:
         if self._client is None:
             return
@@ -284,6 +329,10 @@ class OmiHanger:
                 self._venster_verloren += gat - 1
                 self.verloren_totaal += gat - 1
         self._vorige_id = pid
+        self._venster_bytes += len(data)
+        self._venster_lengtes.append(len(data))
+        if data[2]:
+            self._venster_fragmenten += 1
         self._venster_pakketten += 1
         self.pakketten_totaal += 1
 
@@ -322,6 +371,9 @@ class OmiHanger:
             "batterij": self.batterij,
             "pakketten_per_s": self.pakketten_per_s,
             "verlies_pct": self.verlies_pct,
+            "bytes_per_s": self.bytes_per_s,
+            "notify_lengte": self.notify_lengte,
+            "fragmenten_pct": self.fragmenten_pct,
             "pakketten_totaal": self.pakketten_totaal,
             "verloren_totaal": self.verloren_totaal,
             "verbindingen": self.verbindingen,

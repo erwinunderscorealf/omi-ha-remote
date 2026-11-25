@@ -113,6 +113,7 @@ There is no YAML configuration.
 | *Connected* flips on and off | Weak signal, or the receiver ran out of connection slots. Check the *Receiver* sensor and the proxy's logs. |
 | Audio packets 0 | Normal in silence: the pendant only sends audio while it hears sound, and can stay quiet for minutes. Talk near it. Since 0.1.2 silence no longer triggers a reconnect. |
 | Audio packets stay 0 while you talk | Check the MTU in the debug line "verbonden via … (codec …, mtu …)". An Opus packet needs more than 23; 0.1.1 connects without the service cache for that reason. |
+| Audio packets far below 50 while you talk | The debug log shows per 5 s: notifications/s, bytes/s, length per notification and the share of fragments. Short notifications (≤20 bytes) and many fragments = small MTU: the pendant splits every audio frame. Since 0.1.3 the integration asks a local adapter for the real MTU (before, it always showed 23). |
 
 Debug logging:
 
