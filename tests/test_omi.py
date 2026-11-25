@@ -1,4 +1,4 @@
-"""Rooktests voor de meetversie: laden, entiteiten, switch en verliesmeting."""
+"""Rooktests: laden, entiteiten, switch, verliesmeting en knop."""
 
 import asyncio
 from unittest.mock import patch
@@ -6,6 +6,7 @@ from unittest.mock import patch
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.setup import async_setup_component
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.omi.const import DOMAIN
@@ -17,6 +18,7 @@ ADRES = "AA:BB:CC:DD:EE:FF"
 async def _opzet(hass: HomeAssistant) -> MockConfigEntry:
     entry = MockConfigEntry(domain=DOMAIN, title="Omi Test", data={CONF_ADDRESS: ADRES}, unique_id=ADRES)
     entry.add_to_hass(hass)
+    assert await async_setup_component(hass, "homeassistant", {})
     with patch("custom_components.omi.hanger.bluetooth.async_register_callback", return_value=lambda: None):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
@@ -40,6 +42,7 @@ async def test_entiteiten_en_switch(hass: HomeAssistant, enable_bluetooth) -> No
         assert "sensor.omi_test_battery" in ids
         assert "switch.omi_test_connect" in ids
         assert "event.omi_test_button" in ids
+        assert hass.states.get("sensor.omi_test_assistant").state == "idle"
         assert hass.states.get("binary_sensor.omi_test_connected").state == "off"
         assert hass.states.get("switch.omi_test_connect").state == "on"
 
@@ -63,3 +66,12 @@ async def test_verlies_en_knop(hass: HomeAssistant) -> None:
     h._knop(None, bytearray([2, 0, 0, 0]))
     h._knop(None, bytearray([5, 0, 0, 0]))
     assert gedrukt == ["double_tap"]
+
+
+def test_audio_naar_luisteraar(hass: HomeAssistant) -> None:
+    h = OmiHanger(hass, ADRES, "Omi")
+    frames = []
+    h.async_add_audio_listener(frames.append)
+    h._audio(None, bytearray([1, 0, 0, 0xAA, 0xBB]))
+    h._audio(None, bytearray([2, 0, 1, 0xCC]))      # fragment: niet doorgeven
+    assert frames == [bytes([0xAA, 0xBB])]

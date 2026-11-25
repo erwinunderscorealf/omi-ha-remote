@@ -17,4 +17,5 @@ async def async_get_config_entry_diagnostics(
     return {
         "entry": async_redact_data(dict(entry.data), {CONF_ADDRESS}),
         "hanger": entry.runtime_data.diagnose(),
+        "gesprek": entry.runtime_data.gesprek.diagnose(),
     }

@@ -42,6 +42,26 @@
       }
     },
     "sensor": {
+      "assistant": {
+        "name": "Assistant",
+        "state": {
+          "idle": "Idle",
+          "listening": "Listening",
+          "processing": "Processing",
+          "responding": "Responding"
+        },
+        "state_attributes": {
+          "heard": {
+            "name": "Heard"
+          },
+          "answer": {
+            "name": "Answer"
+          },
+          "error": {
+            "name": "Error"
+          }
+        }
+      },
       "receiver": {
         "name": "Receiver"
       },
@@ -61,6 +81,39 @@
     "switch": {
       "connect": {
         "name": "Connect"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Voice",
+        "description": "Choose the Assist pipeline, and pick a receiver to set the speaker the answer plays on when that receiver carries the connection. Leave the receiver empty and submit to save.",
+        "data": {
+          "pipeline": "Assist pipeline",
+          "receiver": "Set up receiver"
+        },
+        "data_description": {
+          "receiver": "Bluetooth adapter or proxy. The answer plays on the speaker of the receiver that carries the connection at that moment."
+        }
+      },
+      "receiver": {
+        "title": "Receiver {receiver}",
+        "description": "Speaker and room for answers while {receiver} carries the connection. Clear both to remove.",
+        "data": {
+          "speaker": "Speaker",
+          "room": "Room"
+        },
+        "data_description": {
+          "room": "Sent along in the omi_listening and omi_conversation events, e.g. to duck music in that room. Default: the receiver name."
+        }
+      }
+    }
+  },
+  "selector": {
+    "pipeline": {
+      "options": {
+        "preferred": "Preferred pipeline"
       }
     }
   }

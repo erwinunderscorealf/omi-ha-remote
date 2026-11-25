@@ -1,8 +1,8 @@
 """Verbinding met één Omi-hanger via de Bluetooth-laag van Home Assistant.
 
-Meetversie: verbindt, telt de audiostroom (pakketten/s, verlies), leest batterij en
-knop, en houdt bij via welke ontvanger (adapter of ESPHome-proxy) de verbinding loopt.
-Er wordt nog geen audio gedecodeerd of naar een pipeline gestuurd.
+Verbindt, telt de audiostroom (pakketten/s, verlies), leest batterij en knop, en houdt
+bij via welke ontvanger (adapter of ESPHome-proxy) de verbinding loopt. De Opus-frames
+gaan naar de audioluisteraars (het gesprek, zie gesprek.py).
 """
 
 from __future__ import annotations
@@ -63,9 +63,11 @@ class OmiHanger:
         self.stilvallen = 0
         self.verbonden_sinds: float | None = None
         self.laatste_fout: str | None = None
+        self.gesprek: Any = None        # Gesprek, gezet door __init__
 
         self._listeners: list[CALLBACK_TYPE] = []
         self._knop_listeners: list[Callable[[str], None]] = []
+        self._audio_listeners: list[Callable[[bytes], None]] = []
         self._task: asyncio.Task[None] | None = None
         self._client: BleakClient | None = None
         self._los = asyncio.Event()
@@ -92,6 +94,16 @@ class OmiHanger:
     def async_add_knop_listener(self, cb: Callable[[str], None]) -> CALLBACK_TYPE:
         self._knop_listeners.append(cb)
         return lambda: self._knop_listeners.remove(cb)
+
+    @callback
+    def async_add_audio_listener(self, cb: Callable[[bytes], None]) -> CALLBACK_TYPE:
+        """cb krijgt elk heel Opus-frame, zonder de kop van 3 bytes."""
+        self._audio_listeners.append(cb)
+        return lambda: self._audio_listeners.remove(cb)
+
+    @callback
+    def meld(self) -> None:
+        self._meld()
 
     @callback
     def _meld(self) -> None:
@@ -331,10 +343,16 @@ class OmiHanger:
         self._vorige_id = pid
         self._venster_bytes += len(data)
         self._venster_lengtes.append(len(data))
-        if data[2]:
-            self._venster_fragmenten += 1
         self._venster_pakketten += 1
         self.pakketten_totaal += 1
+        if data[2]:
+            # Stuk van een opgeknipt frame (alleen bij een kleine MTU; sinds 0.1.3 niet
+            # meer gezien). Niet bruikbaar voor de decoder: overslaan.
+            self._venster_fragmenten += 1
+            return
+        frame = bytes(data[3:])
+        for cb in list(self._audio_listeners):
+            cb(frame)
 
     def _knop(self, _char: Any, data: bytearray) -> None:
         if len(data) < 4:
@@ -345,18 +363,19 @@ class OmiHanger:
         _LOGGER.debug("%s: knop %s", self.naam, soort)
         for cb in list(self._knop_listeners):
             cb(soort)
-        if soort == "single_tap":
-            # Meetversie: korte tril als bewijs dat schrijven via deze ontvanger werkt.
-            self.hass.async_create_background_task(self.tril(1), "omi tril")
 
-    async def tril(self, sterkte: int) -> None:
-        """1/2/3 = 100/300/500 ms."""
-        if self._client is None:
-            return
-        try:
-            await self._client.write_gatt_char(HAPTIEK_CHAR, bytes([sterkte]), response=True)
-        except Exception as err:  # noqa: BLE001
-            _LOGGER.debug("%s: trillen mislukt: %s", self.naam, err)
+    async def tril(self, sterkte: int, keer: int = 1) -> None:
+        """Sterkte 1/2/3 = 100/300/500 ms; keer = hoe vaak, met een korte pauze ertussen."""
+        for i in range(keer):
+            if self._client is None:
+                return
+            if i:
+                await asyncio.sleep(0.1 + 0.2 * sterkte)
+            try:
+                await self._client.write_gatt_char(HAPTIEK_CHAR, bytes([sterkte]), response=True)
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug("%s: trillen mislukt: %s", self.naam, err)
+                return
 
     def diagnose(self) -> dict[str, Any]:
         return {

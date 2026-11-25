@@ -38,6 +38,20 @@ SENSOREN = (
         waarde=lambda h: h.batterij,
     ),
     OmiSensorBeschrijving(
+        key="assistant",
+        translation_key="assistant",
+        device_class=SensorDeviceClass.ENUM,
+        options=["idle", "listening", "processing", "responding"],
+        waarde=lambda h: h.gesprek.status if h.gesprek else None,
+        attributen=lambda h: {
+            "heard": h.gesprek.laatst_gehoord,
+            "answer": h.gesprek.laatste_antwoord,
+            "error": h.gesprek.laatste_fout,
+        }
+        if h.gesprek
+        else {},
+    ),
+    OmiSensorBeschrijving(
         key="receiver",
         translation_key="receiver",
         waarde=lambda h: h.ontvanger if h.verbonden else None,

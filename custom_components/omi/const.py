@@ -15,3 +15,32 @@ MEETVENSTER_S = 5          # statistiek en waakhond: zo vaak meten
 BATTERIJ_ELKE_S = 600
 WACHT_MIN_S = 5
 WACHT_MAX_S = 60
+
+# ---- spraak -----------------------------------------------------------------
+
+OPUS_CODECS = (20, 21)     # 21 = Opus 16 kHz mono, 20 ms-frames
+RATE = 16000
+VOORLOOP_PAKKETTEN = 20    # 0,4 s audio van vóór de tik meenemen
+MAX_S = 15.0               # langste vraag
+DREMPEL = 250.0            # rms: stilte 15-50, spraak 400-1600 (gemeten op de hanger)
+NEGEER_S = 0.5             # tikgeluid van de knop (rms 2000-4000) niet als spraak tellen
+STILTE_S = 1.2             # zoveel stilte na spraak = klaar
+MIN_SPRAAK_S = 0.3
+VERVOLG_WACHT_S = 6.0      # na een wedervraag zo lang wachten op een antwoord
+TRIL_NEGEER_S = 0.8        # trilgeluid aan het begin van een vervolgopname
+PIPELINE_TIMEOUT_S = 120
+# Pas luisteren als het antwoord is uitgesproken; anders hoort de hanger de speaker.
+NA_ANTWOORD_S = 2.5
+NA_ANTWOORD_PER_TEKEN_S = 0.06
+
+CONF_PIPELINE = "pipeline"
+CONF_ONTVANGERS = "receivers"   # {scanner-bron: {"speaker": entity_id, "room": naam}}
+CONF_ONTVANGER = "receiver"
+CONF_SPEAKER = "speaker"
+CONF_RUIMTE = "room"
+PIPELINE_VOORKEUR = "preferred"
+
+# Events op de bus van Home Assistant (bijvoorbeeld om muziek te dempen of te loggen).
+EVENT_LUISTERT = "omi_listening"
+EVENT_LUISTEREN_KLAAR = "omi_listening_done"
+EVENT_GESPREK = "omi_conversation"

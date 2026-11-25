@@ -42,6 +42,26 @@
       }
     },
     "sensor": {
+      "assistant": {
+        "name": "Assistent",
+        "state": {
+          "idle": "Rust",
+          "listening": "Luistert",
+          "processing": "Denkt na",
+          "responding": "Antwoordt"
+        },
+        "state_attributes": {
+          "heard": {
+            "name": "Gehoord"
+          },
+          "answer": {
+            "name": "Antwoord"
+          },
+          "error": {
+            "name": "Fout"
+          }
+        }
+      },
       "receiver": {
         "name": "Ontvanger"
       },
@@ -61,6 +81,39 @@
     "switch": {
       "connect": {
         "name": "Verbinden"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Spraak",
+        "description": "Kies de Assist-pipeline, en kies een ontvanger om in te stellen op welke speaker het antwoord klinkt als die ontvanger de verbinding draagt. Laat de ontvanger leeg en verstuur om op te slaan.",
+        "data": {
+          "pipeline": "Assist-pipeline",
+          "receiver": "Ontvanger instellen"
+        },
+        "data_description": {
+          "receiver": "Bluetooth-adapter of proxy. Het antwoord klinkt op de speaker van de ontvanger die op dat moment de verbinding draagt."
+        }
+      },
+      "receiver": {
+        "title": "Ontvanger {receiver}",
+        "description": "Speaker en ruimte voor antwoorden zolang {receiver} de verbinding draagt. Maak beide leeg om de regel te wissen.",
+        "data": {
+          "speaker": "Speaker",
+          "room": "Ruimte"
+        },
+        "data_description": {
+          "room": "Gaat mee in de events omi_listening en omi_conversation, bijvoorbeeld om muziek in die ruimte zachter te zetten. Standaard: de naam van de ontvanger."
+        }
+      }
+    }
+  },
+  "selector": {
+    "pipeline": {
+      "options": {
+        "preferred": "Voorkeurspipeline"
       }
     }
   }

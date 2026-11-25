@@ -8,18 +8,17 @@ and a vibration motor) to Home Assistant, using Home Assistant's own Bluetooth s
 
 *Nederlandse handleiding: [README.nl.md](README.nl.md).*
 
-> **Status: measurement release 0.1.** The pendant connects, its button works and the
-> audio stream is measured. It does **not** talk to your voice assistant yet: that comes
-> in the next release (see [Roadmap](#roadmap)). Use this release to find out whether your
-> Bluetooth setup can carry the pendant's audio.
+> **Status: 0.2, first voice release.** Tap the pendant, ask a question, and the answer
+> from your Assist pipeline plays on the speaker of the room you are in. Tested in one
+> household so far; reports are welcome.
 
 ## How it works
 
 ```
  Omi pendant ──BLE──▶ receiver ──▶ Home Assistant ──▶ this integration
  (microphone,         (local adapter or                  │
-  button, vibration)   ESPHome Bluetooth proxy)          ├─ sensors: battery, receiver, audio quality
-                                                         └─ event: button presses
+  button, vibration)   ESPHome Bluetooth proxy)          ├─ Assist pipeline → answer on that room's speaker
+                                                         └─ sensors, button event, events
 ```
 
 - **No extra hardware or app.** The integration uses the Bluetooth adapters and
@@ -37,6 +36,8 @@ and a vibration motor) to Home Assistant, using Home Assistant's own Bluetooth s
 ## Requirements
 
 - Home Assistant 2025.6 or newer, with the Bluetooth integration set up.
+- An [Assist pipeline](https://www.home-assistant.io/voice_control/) with speech-to-text and
+  text-to-speech, and a media player per room for the answers.
 - A Bluetooth adapter or ESPHome Bluetooth proxy within reach of the pendant, able to make
   **active connections** (for proxies: `bluetooth_proxy: active: true`). Each pendant
   permanently uses one connection slot on the receiver that carries it.
@@ -67,15 +68,25 @@ and restart Home Assistant.
 3. Give it a name. The name sets the entity ids: with the name *Omi Anna* you get
    `sensor.omi_anna_battery`, `binary_sensor.omi_anna_connected`, and so on.
 4. Optionally assign the device to an area.
+5. On the integration, choose **Configure**: pick the **Assist pipeline**. Then pick a
+   receiver under **Set up receiver**, choose its speaker (and optionally a room name) and
+   submit. Repeat per receiver; submit with the receiver field empty to save.
 
 There is no YAML configuration.
 
 ## Using it
 
-- **Tap the button once:** the pendant vibrates briefly. That proves Home Assistant can
-  reach it through the current receiver. The *Button* event entity records the press.
-- **Double tap / long press:** recorded on the *Button* event entity. Use them as
-  automation triggers (state of `event.<name>_button`, attribute `event_type`).
+- **Tap once, then talk.** One short vibration: it listens (the 0.4 s before the tap are
+  included). Stop talking for 1.2 s, or tap again: two short vibrations, and the question
+  goes to the pipeline. The answer plays on the speaker set for the receiver that carries
+  the connection, so it follows you from room to room. A question lasts at most 15 s.
+- **Follow-up:** when the assistant asks something back (the answer ends in "?", or the
+  agent wants to continue), the pendant vibrates after the answer and listens for 6 s
+  without a tap.
+- **Double tap:** start a new conversation (two vibrations). **Long vibration:** something
+  went wrong; see the *Assistant* sensor, attribute `error`.
+- Every press is also recorded on the *Button* event entity, for your own automations
+  (state of `event.<name>_button`, attribute `event_type`). A long press does nothing else.
 - **Release the pendant** (for instance to use the phone app): turn off the *Connect*
   switch. Turn it on again to reconnect. The switch keeps its position across restarts.
 
@@ -83,6 +94,7 @@ There is no YAML configuration.
 
 | Entity | What it tells you |
 |---|---|
+| Assistant | `idle`, `listening`, `processing` or `responding`. Attributes `heard`, `answer`, `error`: the last question. |
 | Connected | The BLE connection is up. Attribute `last_error`: the last failure, if any. |
 | Receiver | Name of the adapter or proxy carrying the connection. Attribute `source`: its address. |
 | Battery | Battery level of the pendant (read every 10 minutes). |
@@ -93,6 +105,18 @@ There is no YAML configuration.
 | Connections | How often the integration (re)connected. |
 | Audio stalls | How often the audio stream stopped for at least 5 s. Usually just silence: see below. |
 | Signal strength | RSSI of the pendant's advertisements (diagnostic, disabled by default). |
+
+### Events
+
+For automations, for instance to duck music while the pendant listens:
+
+| Event | When | Data |
+|---|---|---|
+| `omi_listening` | The pendant starts listening. | `room`, `device_id` |
+| `omi_listening_done` | Speech-to-text is done, or there was nothing to send. | `room` |
+| `omi_conversation` | After every question. | `room`, `wake_word` (`omi`), `heard`, `answer`, `error`, `device_id` |
+
+`room` is the room name set for the receiver under *Configure* (default: the receiver's name).
 
 ### Reading the measurements
 
@@ -108,6 +132,8 @@ There is no YAML configuration.
 
 | Symptom | Cause and fix |
 |---|---|
+| Two vibrations, no answer | The question was shorter than 0.3 s, no speaker is set for the current receiver (warning in the log), or the answer was a bare "OK". Check *Configure* and the *Receiver* sensor. |
+| Long vibration | The pipeline failed, or the pendant does not send Opus: attribute `error` of the *Assistant* sensor. |
 | Not discovered | The pendant is off, out of range, or connected to the phone. Disconnect it from the app. |
 | Pendant blinks blue and red, never connects | It still holds an old connection, often to a computer that ran other Omi software. Disconnect it there (Linux: `bluetoothctl disconnect <address>`) or switch the pendant off and on. |
 | *Connected* flips on and off | Weak signal, or the receiver ran out of connection slots. Check the *Receiver* sensor and the proxy's logs. |
@@ -128,23 +154,16 @@ of all counters (the pendant's address is redacted).
 
 ## Roadmap
 
-Next release, voice:
-
-1. Tap → short vibration → the pendant listens; silence or a second tap ends the question.
-2. The audio goes through an **Assist pipeline** of your choice (speech-to-text,
-   conversation agent, text-to-speech).
-3. The answer plays on the speaker of the room whose receiver carries the connection
-   (a receiver → media player table in the options).
-4. When the assistant asks a question back, the pendant vibrates and listens again
-   without a tap.
-5. Double tap starts a new conversation; a long vibration signals an error.
+- Listing in the HACS default store.
+- A wake word instead of a tap (the audio is already there).
 
 ## Development
 
 Tests use [pytest-homeassistant-custom-component](https://github.com/MatthewFlamm/pytest-homeassistant-custom-component):
 
 ```bash
-pip install pytest-homeassistant-custom-component
+pip install pytest-homeassistant-custom-component av hassil home-assistant-intents \
+    pymicro-vad pyspeex-noise mutagen ha-ffmpeg
 pytest
 ```
 

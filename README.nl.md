@@ -6,18 +6,17 @@ via de Bluetooth die Home Assistant al heeft.
 
 *English: [README.md](README.md).*
 
-> **Stand: meetversie 0.1.** De hanger verbindt, de knop werkt en de audiostroom wordt
-> gemeten. Praten met je spraakassistent kan **nog niet**: dat komt in de volgende versie
-> (zie [Wat komt er nog](#wat-komt-er-nog)). Met deze versie zie je of je Bluetooth-opstelling
-> de audio van de hanger aankan.
+> **Stand: 0.2, eerste spraakversie.** Tik op de hanger, stel je vraag, en het antwoord van
+> je Assist-pipeline klinkt op de speaker in de kamer waar je bent. Tot nu toe in één
+> huishouden getest; ervaringen zijn welkom.
 
 ## Hoe het werkt
 
 ```
  Omi-hanger ──BLE──▶ ontvanger ──▶ Home Assistant ──▶ deze integratie
  (microfoon,         (eigen adapter of                  │
-  knop, trilmotor)    ESPHome Bluetooth-proxy)          ├─ sensoren: batterij, ontvanger, audiokwaliteit
-                                                        └─ gebeurtenis: knopdrukken
+  knop, trilmotor)    ESPHome Bluetooth-proxy)          ├─ Assist-pipeline → antwoord op de speaker van die kamer
+                                                        └─ sensoren, knop, events
 ```
 
 - **Geen extra hardware of app.** De integratie gebruikt de Bluetooth-adapters en
@@ -34,6 +33,8 @@ via de Bluetooth die Home Assistant al heeft.
 ## Wat je nodig hebt
 
 - Home Assistant 2025.6 of nieuwer, met de Bluetooth-integratie ingesteld.
+- Een [Assist-pipeline](https://www.home-assistant.io/voice_control/) met spraak-naar-tekst en
+  tekst-naar-spraak, en per kamer een mediaspeler voor de antwoorden.
 - Een Bluetooth-adapter of ESPHome-proxy binnen bereik die **actief kan verbinden** (bij een
   proxy: `bluetooth_proxy: active: true`). Elke hanger houdt vast één verbindingsplek bezet op
   de ontvanger die hem draagt.
@@ -63,15 +64,24 @@ en herstart Home Assistant.
 3. Geef hem een naam. Die bepaalt de entiteiten: met de naam *Omi Anna* krijg je
    `sensor.omi_anna_battery`, `binary_sensor.omi_anna_connected`, enzovoort.
 4. Zet het apparaat eventueel in een ruimte.
+5. Kies bij de integratie **Configureren**: kies de **Assist-pipeline**. Kies daarna onder
+   **Ontvanger instellen** een ontvanger, wijs de speaker aan (en eventueel een ruimtenaam)
+   en verstuur. Herhaal dat per ontvanger; verstuur met een leeg ontvangerveld om op te slaan.
 
 Er is geen YAML-configuratie.
 
 ## Gebruiken
 
-- **Eén keer tikken:** de hanger trilt kort. Dat bewijst dat Home Assistant hem via de
-  huidige ontvanger bereikt. De gebeurtenis-entiteit *Knop* legt de tik vast.
-- **Dubbel tikken / lang drukken:** komt ook op de entiteit *Knop*. Bruikbaar als trigger in
-  automatiseringen (`event.<naam>_button`, attribuut `event_type`).
+- **Eén keer tikken, dan praten.** Eén korte tril: hij luistert (de 0,4 s vóór de tik gaan
+  mee). Zwijg 1,2 s of tik nog eens: twee korte trillen, en de vraag gaat naar de pipeline.
+  Het antwoord klinkt op de speaker van de ontvanger die de verbinding draagt, dus het loopt
+  met je mee van kamer naar kamer. Een vraag duurt hooguit 15 s.
+- **Wedervraag:** vraagt de assistent iets terug (het antwoord eindigt op "?", of de agent
+  wil doorpraten), dan trilt de hanger na het antwoord en luistert hij 6 s zonder tik.
+- **Dubbel tikken:** nieuw gesprek (twee trillen). **Lange tril:** er ging iets mis; zie de
+  sensor *Assistent*, attribuut `error`.
+- Elke druk komt ook op de entiteit *Knop*, voor eigen automatiseringen
+  (`event.<naam>_button`, attribuut `event_type`). Lang drukken doet verder niets.
 - **Hanger vrijgeven** (bijvoorbeeld voor de telefoon-app): zet de schakelaar *Verbinden*
   uit. Weer aan = opnieuw verbinden. De stand blijft bewaard na een herstart.
 
@@ -79,6 +89,7 @@ Er is geen YAML-configuratie.
 
 | Entiteit | Wat het zegt |
 |---|---|
+| Assistent | Rust, luistert, denkt na of antwoordt (`idle`, `listening`, `processing`, `responding`). Attributen `heard`, `answer`, `error`: de laatste vraag. |
 | Verbonden | De BLE-verbinding staat. Attribuut `last_error`: de laatste fout. |
 | Ontvanger | Naam van de adapter of proxy die de verbinding draagt. Attribuut `source`: het adres. |
 | Batterij | Batterijniveau van de hanger (elke 10 minuten gelezen). |
@@ -89,6 +100,18 @@ Er is geen YAML-configuratie.
 | Verbindingen | Hoe vaak er (opnieuw) verbonden is. |
 | Stilvallen | Hoe vaak de audio minstens 5 s ophield. Meestal gewoon stilte: zie hieronder. |
 | Signaalsterkte | RSSI van de hanger (diagnostisch, standaard uit). |
+
+### Events
+
+Voor automatiseringen, bijvoorbeeld om muziek zachter te zetten zolang de hanger luistert:
+
+| Event | Wanneer | Data |
+|---|---|---|
+| `omi_listening` | De hanger begint te luisteren. | `room`, `device_id` |
+| `omi_listening_done` | Spraakherkenning is klaar, of er was niets te versturen. | `room` |
+| `omi_conversation` | Na elke vraag. | `room`, `wake_word` (`omi`), `heard`, `answer`, `error`, `device_id` |
+
+`room` is de ruimtenaam die onder *Configureren* bij de ontvanger staat (standaard de naam van de ontvanger).
 
 ### De metingen lezen
 
@@ -103,6 +126,8 @@ Er is geen YAML-configuratie.
 
 | Wat je ziet | Oorzaak en oplossing |
 |---|---|
+| Twee trillen, geen antwoord | De vraag was korter dan 0,3 s, er is geen speaker ingesteld voor de huidige ontvanger (waarschuwing in het log), of het antwoord was een kaal "Oké". Kijk bij *Configureren* en naar de sensor *Ontvanger*. |
+| Lange tril | De pipeline faalde, of de hanger stuurt geen Opus: attribuut `error` van de sensor *Assistent*. |
 | Niet gevonden | Hanger uit, buiten bereik of verbonden met de telefoon. Maak hem los in de app. |
 | Hanger knippert blauw-rood en verbindt niet | Hij houdt nog een oude verbinding vast, vaak met een computer waarop andere Omi-software draaide. Verbreek die daar (Linux: `bluetoothctl disconnect <adres>`) of zet de hanger uit en aan. |
 | *Verbonden* springt aan en uit | Zwak signaal, of de ontvanger heeft geen verbindingsplek vrij. Kijk naar de sensor *Ontvanger* en de logs van de proxy. |
@@ -123,15 +148,8 @@ een momentopname van alle tellers (het adres van de hanger is weggelaten).
 
 ## Wat komt er nog
 
-Volgende versie, spraak:
-
-1. Tikken → korte tril → de hanger luistert; stilte of een tweede tik sluit de vraag af.
-2. De audio gaat door een **Assist-pipeline** naar keuze (spraak naar tekst,
-   gespreksagent, tekst naar spraak).
-3. Het antwoord klinkt op de speaker in de kamer van de ontvanger die de verbinding heeft
-   (een tabel ontvanger → mediaspeler in de opties).
-4. Stelt de assistent een wedervraag, dan trilt de hanger en luistert hij opnieuw, zonder tik.
-5. Dubbeltik = nieuw gesprek; een lange tril betekent een fout.
+- Aanmelden bij de standaardlijst van HACS.
+- Een wekwoord in plaats van tikken (de audio is er al).
 
 ## Licentie
 
