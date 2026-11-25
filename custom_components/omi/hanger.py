@@ -171,12 +171,10 @@ class OmiHanger:
         )
 
     async def _sessie(self) -> bool:
-        """Eén verbinding van begin tot eind.
+        """Eén verbinding van begin tot eind; loopt tot de verbinding wegvalt.
 
-        True als er audio binnenkwam. Een verbinding zonder één audiopakket telt als
-        mislukt, zodat de wachttijd oploopt en de ontvanger geen verbindingsplek om de
-        paar seconden kwijt is (gemeten via een ESPHome-proxy: na een stilval kwam de
-        audio bij geen enkele herverbinding terug).
+        True als er audio binnenkwam. Een verbinding die wegvalt zonder één audiopakket
+        telt als mislukt, zodat de wachttijd oploopt.
         """
         ble = self._ble_device()
         if ble is None:
@@ -230,6 +228,7 @@ class OmiHanger:
 
         batterij_tijd = time.monotonic()
         begin_totaal = self.pakketten_totaal
+        stroomt = False
         while not self._los.is_set():
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self._los.wait(), MEETVENSTER_S)
@@ -245,12 +244,15 @@ class OmiHanger:
                 await self._lees_batterij()
             self._meld()
 
-            if n == 0:
-                # Gemeten op de desktop: de stroom valt soms stil; alleen opnieuw
-                # verbinden helpt. HA kiest daarna zelf de beste ontvanger.
+            # De hanger stuurt alleen audio als hij geluid hoort (VAD in de firmware):
+            # in stilte komt er soms minutenlang niets, ook al staat de verbinding
+            # (gemeten 25-11-2026 op de desktop: 0,5 tot 15 s voor het eerste pakket,
+            # gaten tot 85 s). Stilte is dus geen storing en geen reden om opnieuw te
+            # verbinden; we tellen alleen hoe vaak de stroom ophoudt.
+            if n == 0 and stroomt:
                 self.stilvallen += 1
-                _LOGGER.info("%s: geen audio in %s s, opnieuw verbinden", self.naam, MEETVENSTER_S)
-                break
+                _LOGGER.debug("%s: audio gestopt (stilte)", self.naam)
+            stroomt = n > 0
         if self.pakketten_totaal > begin_totaal:
             self.lege_sessies = 0
             return True

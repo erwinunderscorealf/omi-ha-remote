@@ -84,16 +84,17 @@ Er is geen YAML-configuratie.
 | Batterij | Batterijniveau van de hanger (elke 10 minuten gelezen). |
 | Knop | Gebeurtenis: `single_tap`, `double_tap`, `long_press`. |
 | Verbinden | Schakelaar: uit = hanger vrijgeven zonder Home Assistant te herstarten. |
-| Audiopakketten | Pakketten per seconde over de laatste 5 s. Rond **50** is gezond. |
+| Audiopakketten | Pakketten per seconde over de laatste 5 s. Rond **50** zolang de hanger geluid hoort; 0 in stilte. |
 | Audioverlies | Verloren pakketten in %, uit gaten in de pakketnummers. |
 | Verbindingen | Hoe vaak er (opnieuw) verbonden is. |
-| Stilvallen | Hoe vaak de audio 5 s wegbleef en opnieuw verbinden nodig was. |
+| Stilvallen | Hoe vaak de audio minstens 5 s ophield. Meestal gewoon stilte: zie hieronder. |
 | Signaalsterkte | RSSI van de hanger (diagnostisch, standaard uit). |
 
 ### De metingen lezen
 
-- *Audiopakketten* rond 50 en *Audioverlies* bijna 0 %: deze ontvanger kan de audio aan.
-- Veel *Stilvallen* of hoog verlies bij één ontvanger: verplaats hem, zet er een proxy
+- De hanger stuurt alleen audio als hij geluid hoort (spraakdetectie in de firmware). Test
+  met iemand die in de buurt praat. *Audiopakketten* rond 50 en *Audioverlies* bijna 0 %: deze ontvanger kan de audio aan.
+- Hoog verlies bij één ontvanger: verplaats hem, zet er een proxy
   dichterbij, of kijk naar de wifi (een ESPHome-proxy stuurt de audio over wifi door).
 - *Verbindingen* loopt snel op terwijl de hanger stil ligt: iets anders pakt de verbinding
   (vaak de telefoon-app), of de ontvanger heeft geen verbindingsplek meer vrij.
@@ -105,8 +106,8 @@ Er is geen YAML-configuratie.
 | Niet gevonden | Hanger uit, buiten bereik of verbonden met de telefoon. Maak hem los in de app. |
 | Hanger knippert blauw-rood en verbindt niet | Hij houdt nog een oude verbinding vast, vaak met een computer waarop andere Omi-software draaide. Verbreek die daar (Linux: `bluetoothctl disconnect <adres>`) of zet de hanger uit en aan. |
 | *Verbonden* springt aan en uit | Zwak signaal, of de ontvanger heeft geen verbindingsplek vrij. Kijk naar de sensor *Ontvanger* en de logs van de proxy. |
-| Audiopakketten 0 bij elke herverbinding via een ESPHome-proxy | Opgelost in 0.1.1: de proxy sloeg met een servicecache de MTU-uitwisseling over, waardoor de MTU 23 bleef, te klein voor de audio. De integratie verbindt nu zonder servicecache (±2 s extra per verbinding). In het log moet bij "verbonden via … (codec …, mtu …)" een MTU boven 23 staan. |
-| Audiopakketten 0, Stilvallen loopt op | Bekend gedrag van de hanger: de stroom stopt soms na 30-60 s. De integratie verbindt vanzelf opnieuw (±5 s). |
+| Audiopakketten 0 | Normaal in stilte: de hanger stuurt alleen audio als hij geluid hoort, en kan minutenlang zwijgen. Praat in de buurt. Sinds 0.1.2 is stilte geen reden meer om opnieuw te verbinden. |
+| Audiopakketten blijft 0 terwijl je praat | Kijk naar de MTU in de debugregel "verbonden via … (codec …, mtu …)". Een Opus-pakket heeft meer dan 23 nodig; 0.1.1 verbindt daarom zonder servicecache. |
 
 Uitgebreid loggen:
 

@@ -88,17 +88,18 @@ There is no YAML configuration.
 | Battery | Battery level of the pendant (read every 10 minutes). |
 | Button | Event entity: `single_tap`, `double_tap`, `long_press`. |
 | Connect | Switch: off releases the pendant without restarting Home Assistant. |
-| Audio packets | Audio packets per second over the last 5 s. About **50** is healthy. |
+| Audio packets | Audio packets per second over the last 5 s. About **50** while the pendant hears sound; 0 in silence. |
 | Audio loss | Lost audio packets in %, from gaps in the packet numbers. Attributes: totals. |
 | Connections | How often the integration (re)connected. |
-| Audio stalls | How often the audio stream stopped for 5 s and a reconnect was needed. |
+| Audio stalls | How often the audio stream stopped for at least 5 s. Usually just silence: see below. |
 | Signal strength | RSSI of the pendant's advertisements (diagnostic, disabled by default). |
 
 ### Reading the measurements
 
-- *Audio packets* around 50 and *Audio loss* near 0 %: this receiver carries the audio
+- The pendant only streams when it hears sound (voice detection in its firmware). Test
+  with someone talking near it. *Audio packets* around 50 and *Audio loss* near 0 %: this receiver carries the audio
   fine. Voice will work through it.
-- Many *Audio stalls* or high loss on one receiver: move it, add a proxy closer by, or check
+- High loss on one receiver: move it, add a proxy closer by, or check
   its Wi-Fi (ESPHome proxies forward the audio over Wi-Fi).
 - *Connections* rising fast while the pendant stays put: something else keeps taking the
   connection (often the phone app), or the receiver has no free connection slot.
@@ -110,8 +111,8 @@ There is no YAML configuration.
 | Not discovered | The pendant is off, out of range, or connected to the phone. Disconnect it from the app. |
 | Pendant blinks blue and red, never connects | It still holds an old connection, often to a computer that ran other Omi software. Disconnect it there (Linux: `bluetoothctl disconnect <address>`) or switch the pendant off and on. |
 | *Connected* flips on and off | Weak signal, or the receiver ran out of connection slots. Check the *Receiver* sensor and the proxy's logs. |
-| Audio packets 0 on every reconnect through an ESPHome proxy | Fixed in 0.1.1: the proxy skipped the MTU exchange when it reused cached services, leaving MTU 23, too small for the audio. The integration now connects without the service cache (about 2 s extra per connection). With debug logging, the line "verbonden via … (codec …, mtu …)" should show an MTU above 23. |
-| Audio packets 0, stalls rising | Known pendant behaviour: the stream sometimes stops after 30–60 s; the integration reconnects automatically (about 5 s). |
+| Audio packets 0 | Normal in silence: the pendant only sends audio while it hears sound, and can stay quiet for minutes. Talk near it. Since 0.1.2 silence no longer triggers a reconnect. |
+| Audio packets stay 0 while you talk | Check the MTU in the debug line "verbonden via … (codec …, mtu …)". An Opus packet needs more than 23; 0.1.1 connects without the service cache for that reason. |
 
 Debug logging:
 
