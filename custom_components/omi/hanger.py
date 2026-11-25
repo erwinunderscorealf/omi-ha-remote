@@ -51,6 +51,8 @@ class OmiHanger:
         self.ontvanger_bron: str | None = None
         self.rssi: int | None = None
         self.codec: int | None = None
+        self.mtu: int | None = None
+        self.lege_sessies = 0
         self.batterij: int | None = None
         self.pakketten_per_s: float | None = None
         self.verlies_pct: float | None = None
@@ -169,7 +171,13 @@ class OmiHanger:
         )
 
     async def _sessie(self) -> bool:
-        """Eén verbinding van begin tot eind. True als er verbonden is geweest."""
+        """Eén verbinding van begin tot eind.
+
+        True als er audio binnenkwam. Een verbinding zonder één audiopakket telt als
+        mislukt, zodat de wachttijd oploopt en de ontvanger geen verbindingsplek om de
+        paar seconden kwijt is (gemeten via een ESPHome-proxy: na een stilval kwam de
+        audio bij geen enkele herverbinding terug).
+        """
         ble = self._ble_device()
         if ble is None:
             # Niet in bereik (of nog verbonden met iets anders): wachten op een advertentie.
@@ -184,6 +192,12 @@ class OmiHanger:
             self.naam,
             disconnected_callback=lambda _c: self._los.set(),
             ble_device_callback=lambda: self._ble_device() or ble,
+            # Geen servicecache: een ESPHome-proxy slaat bij een verbinding mét cache de
+            # MTU-uitwisseling over. Dan blijft de MTU 23 en past een Opus-notificatie
+            # (±80 bytes) er niet in: de hanger stuurt geen audio (gemeten 25-11-2026,
+            # elke herverbinding via de proxy "mtu=23" en 0 pakketten). Kost ±2 s
+            # servicediscovery per verbinding.
+            use_services_cache=False,
         )
         self._client = client
 
@@ -191,6 +205,7 @@ class OmiHanger:
         scanner = getattr(client, "_connected_scanner", None)
         self.ontvanger = getattr(scanner, "name", None)
         self.ontvanger_bron = getattr(scanner, "source", None)
+        self.mtu = getattr(client, "mtu_size", None)
 
         try:
             self.codec = (await client.read_gatt_char(CODEC_CHAR))[0]
@@ -208,11 +223,13 @@ class OmiHanger:
         self.verbindingen += 1
         self.laatste_fout = None
         _LOGGER.info(
-            "%s: verbonden via %s (codec %s)", self.naam, self.ontvanger, self.codec
+            "%s: verbonden via %s (codec %s, mtu %s)",
+            self.naam, self.ontvanger, self.codec, self.mtu,
         )
         self._meld()
 
         batterij_tijd = time.monotonic()
+        begin_totaal = self.pakketten_totaal
         while not self._los.is_set():
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self._los.wait(), MEETVENSTER_S)
@@ -234,7 +251,15 @@ class OmiHanger:
                 self.stilvallen += 1
                 _LOGGER.info("%s: geen audio in %s s, opnieuw verbinden", self.naam, MEETVENSTER_S)
                 break
-        return True
+        if self.pakketten_totaal > begin_totaal:
+            self.lege_sessies = 0
+            return True
+        self.lege_sessies += 1
+        _LOGGER.warning(
+            "%s: verbonden via %s (mtu %s) maar geen audio ontvangen (%s keer op rij)",
+            self.naam, self.ontvanger, self.mtu, self.lege_sessies,
+        )
+        return False
 
     async def _lees_batterij(self) -> None:
         if self._client is None:
@@ -290,6 +315,8 @@ class OmiHanger:
             "ontvanger_bron": self.ontvanger_bron,
             "rssi": self.rssi,
             "codec": self.codec,
+            "mtu": self.mtu,
+            "lege_sessies": self.lege_sessies,
             "batterij": self.batterij,
             "pakketten_per_s": self.pakketten_per_s,
             "verlies_pct": self.verlies_pct,

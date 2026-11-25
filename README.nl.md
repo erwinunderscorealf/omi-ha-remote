@@ -105,6 +105,7 @@ Er is geen YAML-configuratie.
 | Niet gevonden | Hanger uit, buiten bereik of verbonden met de telefoon. Maak hem los in de app. |
 | Hanger knippert blauw-rood en verbindt niet | Hij houdt nog een oude verbinding vast, vaak met een computer waarop andere Omi-software draaide. Verbreek die daar (Linux: `bluetoothctl disconnect <adres>`) of zet de hanger uit en aan. |
 | *Verbonden* springt aan en uit | Zwak signaal, of de ontvanger heeft geen verbindingsplek vrij. Kijk naar de sensor *Ontvanger* en de logs van de proxy. |
+| Audiopakketten 0 bij elke herverbinding via een ESPHome-proxy | Opgelost in 0.1.1: de proxy sloeg met een servicecache de MTU-uitwisseling over, waardoor de MTU 23 bleef, te klein voor de audio. De integratie verbindt nu zonder servicecache (±2 s extra per verbinding). In het log moet bij "verbonden via … (codec …, mtu …)" een MTU boven 23 staan. |
 | Audiopakketten 0, Stilvallen loopt op | Bekend gedrag van de hanger: de stroom stopt soms na 30-60 s. De integratie verbindt vanzelf opnieuw (±5 s). |
 
 Uitgebreid loggen:

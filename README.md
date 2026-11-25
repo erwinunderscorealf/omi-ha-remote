@@ -110,6 +110,7 @@ There is no YAML configuration.
 | Not discovered | The pendant is off, out of range, or connected to the phone. Disconnect it from the app. |
 | Pendant blinks blue and red, never connects | It still holds an old connection, often to a computer that ran other Omi software. Disconnect it there (Linux: `bluetoothctl disconnect <address>`) or switch the pendant off and on. |
 | *Connected* flips on and off | Weak signal, or the receiver ran out of connection slots. Check the *Receiver* sensor and the proxy's logs. |
+| Audio packets 0 on every reconnect through an ESPHome proxy | Fixed in 0.1.1: the proxy skipped the MTU exchange when it reused cached services, leaving MTU 23, too small for the audio. The integration now connects without the service cache (about 2 s extra per connection). With debug logging, the line "verbonden via … (codec …, mtu …)" should show an MTU above 23. |
 | Audio packets 0, stalls rising | Known pendant behaviour: the stream sometimes stops after 30–60 s; the integration reconnects automatically (about 5 s). |
 
 Debug logging:
